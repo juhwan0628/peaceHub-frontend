@@ -1,0 +1,231 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  /* Fonts */
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+
+  /* Base Colors */
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+
+  /* Primary (Lime Green) */
+  --color-primary: var(--primary);
+  --color-primary-light: var(--primary-light);
+  --color-primary-dark: var(--primary-dark);
+  --color-primary-foreground: var(--primary-foreground);
+
+  /* Accent (Coral Pink) */
+  --color-accent: var(--accent);
+  --color-accent-light: var(--accent-light);
+  --color-accent-dark: var(--accent-dark);
+  --color-accent-foreground: var(--accent-foreground);
+
+  /* Brand (SKKU Blue) */
+  --color-brand: var(--brand);
+
+  /* Neutral Scale */
+  --color-neutral-50: var(--neutral-50);
+  --color-neutral-100: var(--neutral-100);
+  --color-neutral-200: var(--neutral-200);
+  --color-neutral-400: var(--neutral-400);
+  --color-neutral-500: var(--neutral-500);
+  --color-neutral-700: var(--neutral-700);
+  --color-neutral-800: var(--neutral-800);
+  --color-neutral-900: var(--neutral-900);
+
+  /* Secondary & Muted */
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+
+  /* Destructive */
+  --color-destructive: var(--destructive);
+
+  /* Border & Input */
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  /* Sidebar */
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  /* Border Radius */
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-card: var(--radius-card);
+}
+
+:root {
+  /* peaceHub Custom Colors */
+  /* Border Radius */
+  --radius: 0.75rem; /* 12px - button radius */
+  --radius-card: 1rem; /* 16px - card radius */
+
+  /* Background & Base */
+  --background: #FAFAFA; /* neutral-50 */
+  --foreground: #212121; /* neutral-900 */
+
+  /* Card */
+  --card: #FFFFFF;
+  --card-foreground: #212121; /* neutral-900 */
+
+  /* Popover */
+  --popover: #FFFFFF;
+  --popover-foreground: #212121; /* neutral-900 */
+
+  /* Primary - Lime Green (라임 그린) */
+  --primary: #8DC63F;
+  --primary-light: #A3CF67;
+  --primary-dark: #71A032;
+  --primary-foreground: #FFFFFF;
+
+  /* Accent - Coral Pink (코랄 핑크) */
+  --accent: #FF9AA2;
+  --accent-light: #FFB3B8;
+  --accent-dark: #E67F86;
+  --accent-foreground: #FFFFFF;
+
+  /* Brand - SKKU Blue (로고만) */
+  --brand: #0B7BC1;
+
+  /* Neutral Colors */
+  --neutral-50: #FAFAFA;
+  --neutral-100: #F5F5F5;
+  --neutral-200: #EEEEEE;
+  --neutral-400: #BDBDBD;
+  --neutral-500: #9E9E9E;
+  --neutral-700: #616161;
+  --neutral-800: #424242;
+  --neutral-900: #212121;
+
+  /* Secondary */
+  --secondary: #F5F5F5; /* neutral-100 */
+  --secondary-foreground: #212121; /* neutral-900 */
+
+  /* Muted */
+  --muted: #F5F5F5; /* neutral-100 */
+  --muted-foreground: #9E9E9E; /* neutral-500 */
+
+  /* Destructive */
+  --destructive: #E67F86; /* accent-dark */
+
+  /* Border & Input */
+  --border: #EEEEEE; /* neutral-200 */
+  --input: #EEEEEE; /* neutral-200 */
+  --ring: #8DC63F; /* primary */
+
+  /* Sidebar */
+  --sidebar: #FFFFFF;
+  --sidebar-foreground: #212121; /* neutral-900 */
+  --sidebar-primary: #8DC63F; /* primary */
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: #F5F5F5; /* neutral-100 */
+  --sidebar-accent-foreground: #212121; /* neutral-900 */
+  --sidebar-border: #EEEEEE; /* neutral-200 */
+  --sidebar-ring: #8DC63F; /* primary */
+}
+
+.dark {
+  /* Dark mode uses same colors but inverted backgrounds */
+  --background: #212121; /* neutral-900 */
+  --foreground: #FAFAFA; /* neutral-50 */
+
+  --card: #424242; /* neutral-800 */
+  --card-foreground: #FAFAFA; /* neutral-50 */
+
+  --popover: #424242; /* neutral-800 */
+  --popover-foreground: #FAFAFA; /* neutral-50 */
+
+  /* Primary & Accent stay the same */
+  --primary: #8DC63F;
+  --primary-foreground: #FFFFFF;
+
+  --accent: #FF9AA2;
+  --accent-foreground: #FFFFFF;
+
+  --secondary: #424242; /* neutral-800 */
+  --secondary-foreground: #FAFAFA; /* neutral-50 */
+
+  --muted: #424242; /* neutral-800 */
+  --muted-foreground: #9E9E9E; /* neutral-500 */
+
+  --border: #616161; /* neutral-700 */
+  --input: #616161; /* neutral-700 */
+  --ring: #8DC63F; /* primary */
+
+  --sidebar: #424242; /* neutral-800 */
+  --sidebar-foreground: #FAFAFA; /* neutral-50 */
+  --sidebar-primary: #8DC63F; /* primary */
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: #616161; /* neutral-700 */
+  --sidebar-accent-foreground: #FAFAFA; /* neutral-50 */
+  --sidebar-border: #616161; /* neutral-700 */
+  --sidebar-ring: #8DC63F; /* primary */
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+  }
+}
+
+@layer utilities {
+  /* Custom Shadows - Minimal Design */
+  .shadow-soft {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  }
+  .shadow-card {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  }
+
+  /* Custom Border Radius */
+  .rounded-button {
+    border-radius: 0.75rem; /* 12px */
+  }
+  .rounded-card {
+    border-radius: 1rem; /* 16px */
+  }
+
+  /* Text Styles */
+  .text-title {
+    @apply text-neutral-900 dark:text-neutral-50 font-semibold;
+  }
+  .text-body {
+    @apply text-neutral-700 dark:text-neutral-200;
+  }
+  .text-subtitle {
+    @apply text-neutral-500 dark:text-neutral-400 text-sm;
+  }
+
+  /* Timetable Block Colors */
+  .block-quiet {
+    @apply bg-neutral-800 dark:bg-neutral-700;
+  }
+  .block-busy {
+    @apply bg-accent hover:bg-accent-light;
+  }
+  .block-task {
+    @apply bg-primary hover:bg-primary-light;
+  }
+}
