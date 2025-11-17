@@ -1,29 +1,43 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import type { ScheduleBlock } from '@/types';
-import { dayOfWeekToKorean } from '@/types';
-import { validateFullWeekCoverage, fillAllGapsWithTask } from '@/lib/timetable-utils';
+import { dayOfWeekToKorean, DAYS_OF_WEEK } from '@/types';
+import {
+  weeklyHourlyScheduleToBlocks,
+  fillAllGapsWithTask
+} from '@/lib/timetable-utils';
 import { scheduleApi, getErrorMessage } from '@/lib/api';
-import TimetableGrid from '@/components/TimetableGrid';
+import TimetableGrid, { type WeeklyHourlySchedule } from '@/components/TimetableGrid';
 import { Button } from '@/components/ui/button';
 
 export default function TimetablePage() {
   const router = useRouter();
-  const [schedules, setSchedules] = useState<ScheduleBlock[]>([]);
+  const [schedule, setSchedule] = useState<WeeklyHourlySchedule | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [warning, setWarning] = useState('');
 
-  // 24시간 커버리지 검증
-  const handleValidate = () => {
-    const { isValid, missingDays } = validateFullWeekCoverage(schedules);
+  // 스케줄 변경 핸들러 (useCallback으로 메모이제이션)
+  const handleScheduleChange = useCallback((newSchedule: WeeklyHourlySchedule) => {
+    setSchedule(newSchedule);
+    setWarning(''); // 경고 초기화
+  }, []);
 
-    if (!isValid) {
-      const dayNames = missingDays.map(dayOfWeekToKorean).join(', ');
+  // 24시간 커버리지 검증
+  const validateCoverage = (weeklySchedule: WeeklyHourlySchedule): boolean => {
+    const missingDays: string[] = [];
+
+    DAYS_OF_WEEK.forEach((day) => {
+      const hasGaps = weeklySchedule[day].some((type) => type === null);
+      if (hasGaps) {
+        missingDays.push(dayOfWeekToKorean(day));
+      }
+    });
+
+    if (missingDays.length > 0) {
       setWarning(
-        `다음 요일의 24시간이 완전히 채워지지 않았습니다: ${dayNames}. "빈 시간을 업무 시간으로 채우기" 버튼을 눌러 자동으로 채울 수 있습니다.`
+        `다음 요일의 24시간이 완전히 채워지지 않았습니다: ${missingDays.join(', ')}. "빈 시간을 업무 시간으로 채우기" 버튼을 눌러 자동으로 채울 수 있습니다.`
       );
       return false;
     }
@@ -34,10 +48,15 @@ export default function TimetablePage() {
 
   // 저장 및 제출
   const handleSubmit = async () => {
+    if (!schedule) {
+      alert('스케줄을 설정해주세요');
+      return;
+    }
+
     setError('');
 
     // 검증
-    const isValid = handleValidate();
+    const isValid = validateCoverage(schedule);
 
     // 경고만 표시하고 계속 진행 가능
     if (!isValid) {
@@ -50,14 +69,17 @@ export default function TimetablePage() {
       }
     }
 
-    // 빈 시간을 TASK로 자동 채우기
-    const completedSchedules = fillAllGapsWithTask(schedules);
-
     setIsLoading(true);
 
     try {
-      // API 호출
-      const payload = completedSchedules.map((block) => ({
+      // 시간별 배열 → 블록 배열로 변환
+      let blocks = weeklyHourlyScheduleToBlocks(schedule);
+
+      // 빈 시간을 TASK로 자동 채우기
+      blocks = fillAllGapsWithTask(blocks);
+
+      // API 호출 (id와 userId 제외)
+      const payload = blocks.map((block) => ({
         dayOfWeek: block.dayOfWeek,
         type: block.type,
         startTime: block.startTime,
@@ -71,7 +93,7 @@ export default function TimetablePage() {
       // router.push('/dashboard');
 
       // 임시: 성공 메시지만 표시
-      console.log('Saved schedules:', completedSchedules);
+      console.log('Saved blocks:', blocks);
     } catch (err) {
       setError(getErrorMessage(err));
     } finally {
@@ -94,8 +116,7 @@ export default function TimetablePage() {
 
       {/* Timetable Grid */}
       <TimetableGrid
-        schedules={schedules}
-        onScheduleChange={setSchedules}
+        onScheduleChange={handleScheduleChange}
         mode="edit"
         showQuickActions={true}
       />
@@ -134,7 +155,7 @@ export default function TimetablePage() {
       <div className="mt-8 flex justify-center">
         <Button
           onClick={handleSubmit}
-          disabled={isLoading || schedules.length === 0}
+          disabled={isLoading || !schedule}
           className="bg-primary text-white hover:bg-primary-light transition-colors rounded-button h-12 px-8 text-base font-medium"
         >
           {isLoading ? '저장 중...' : '저장하고 시작하기'}
@@ -148,8 +169,8 @@ export default function TimetablePage() {
         </h4>
         <ul className="text-sm text-neutral-700 space-y-1">
           <li>1. 상단에서 타입(조용시간/외출)을 선택하세요</li>
-          <li>2. 타임라인에서 드래그하여 블록을 생성하세요</li>
-          <li>3. 블록의 양 끝을 드래그하여 시간을 조정할 수 있습니다</li>
+          <li>2. 타임라인의 시간 칸을 클릭하거나 드래그하여 설정하세요</li>
+          <li>3. 같은 타입의 시간을 다시 클릭하면 지워집니다</li>
           <li>4. 요일을 클릭하고 "빠른 설정" 버튼으로 쉽게 복사할 수 있습니다</li>
           <li>5. 나머지 빈 시간은 자동으로 업무 가능 시간으로 설정됩니다</li>
         </ul>

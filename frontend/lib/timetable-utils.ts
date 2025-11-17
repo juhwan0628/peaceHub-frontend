@@ -284,3 +284,106 @@ export const fillAllGapsWithTask = (blocks: ScheduleBlock[]): ScheduleBlock[] =>
   });
   return result;
 };
+
+// ========================================
+// 시간별 배열 ↔ 블록 변환
+// ========================================
+
+/**
+ * 시간별 배열(24개)을 블록 배열로 변환
+ * 연속된 같은 타입을 하나의 블록으로 병합
+ */
+export const hourlyScheduleToBlocks = (
+  day: DayOfWeek,
+  hourlySchedule: (TimeBlockType | null)[]
+): ScheduleBlock[] => {
+  const blocks: ScheduleBlock[] = [];
+  let currentType: TimeBlockType | null = null;
+  let startHour = 0;
+
+  for (let hour = 0; hour < 24; hour++) {
+    const type = hourlySchedule[hour];
+
+    if (type !== currentType) {
+      // 이전 블록 종료
+      if (currentType !== null) {
+        blocks.push({
+          id: crypto.randomUUID(),
+          dayOfWeek: day,
+          type: currentType,
+          startTime: startHour * 60,
+          endTime: hour * 60,
+        });
+      }
+
+      // 새 블록 시작
+      currentType = type;
+      startHour = hour;
+    }
+  }
+
+  // 마지막 블록 처리
+  if (currentType !== null) {
+    blocks.push({
+      id: crypto.randomUUID(),
+      dayOfWeek: day,
+      type: currentType,
+      startTime: startHour * 60,
+      endTime: 24 * 60, // 1440분
+    });
+  }
+
+  return blocks;
+};
+
+/**
+ * 블록 배열을 시간별 배열(24개)로 변환
+ */
+export const blocksToHourlySchedule = (
+  blocks: ScheduleBlock[]
+): (TimeBlockType | null)[] => {
+  const hourlySchedule: (TimeBlockType | null)[] = Array(24).fill(null);
+
+  blocks.forEach((block) => {
+    const startHour = Math.floor(block.startTime / 60);
+    const endHour = Math.ceil(block.endTime / 60);
+
+    for (let hour = startHour; hour < endHour && hour < 24; hour++) {
+      hourlySchedule[hour] = block.type;
+    }
+  });
+
+  return hourlySchedule;
+};
+
+/**
+ * 전체 주간 스케줄을 시간별 배열로 변환
+ */
+export const blocksToWeeklyHourlySchedule = (
+  blocks: ScheduleBlock[]
+): Record<DayOfWeek, (TimeBlockType | null)[]> => {
+  const weekly = {} as Record<DayOfWeek, (TimeBlockType | null)[]>;
+
+  DAYS_OF_WEEK.forEach((day) => {
+    const dayBlocks = getBlocksByDay(blocks, day);
+    weekly[day] = blocksToHourlySchedule(dayBlocks);
+  });
+
+  return weekly;
+};
+
+/**
+ * 시간별 주간 스케줄을 블록 배열로 변환
+ */
+export const weeklyHourlyScheduleToBlocks = (
+  weekly: Record<DayOfWeek, (TimeBlockType | null)[]>
+): ScheduleBlock[] => {
+  const allBlocks: ScheduleBlock[] = [];
+
+  DAYS_OF_WEEK.forEach((day) => {
+    const dayBlocks = hourlyScheduleToBlocks(day, weekly[day]);
+    allBlocks.push(...dayBlocks);
+  });
+
+  return allBlocks;
+};

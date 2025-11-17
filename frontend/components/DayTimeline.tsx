@@ -1,169 +1,119 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
-import type { DayOfWeek, ScheduleBlock, TimeBlockType } from '@/types';
-import { dayOfWeekToKorean, minutesToTime } from '@/types';
-import { hourToMinutes, minutesToGridColumn } from '@/lib/timetable-utils';
-import TimeBlock from './TimeBlock';
+import { useState } from 'react';
+import type { DayOfWeek, TimeBlockType } from '@/types';
+import { dayOfWeekToKorean } from '@/types';
 import { cn } from '@/lib/utils';
 
 // ========================================
-// DayTimeline Component
+// DayTimeline Component (시간별 셀 방식)
 // ========================================
 
 interface DayTimelineProps {
   day: DayOfWeek;
-  blocks: ScheduleBlock[];
-  selectedType: TimeBlockType; // 현재 선택된 타입 (툴바에서)
+  hourlySchedule: (TimeBlockType | null)[]; // 24개 시간의 타입 배열
+  selectedType: TimeBlockType; // 현재 선택된 타입
   mode?: 'edit' | 'view';
   showHourLabels?: boolean;
   compact?: boolean;
-  onBlockAdd?: (startTime: number, endTime: number) => void;
-  onBlockUpdate?: (blockId: string, updates: Partial<ScheduleBlock>) => void;
-  onBlockDelete?: (blockId: string) => void;
+  onChange?: (hourlySchedule: (TimeBlockType | null)[]) => void;
 }
 
 export default function DayTimeline({
   day,
-  blocks,
+  hourlySchedule,
   selectedType,
   mode = 'view',
   showHourLabels = true,
   compact = false,
-  onBlockAdd,
-  onBlockUpdate,
-  onBlockDelete,
+  onChange,
 }: DayTimelineProps) {
-  const [dragState, setDragState] = useState<{
-    isActive: boolean;
-    startHour: number;
-    endHour: number;
-  }>({ isActive: false, startHour: 0, endHour: 0 });
+  const [isPainting, setIsPainting] = useState(false);
 
-  const [resizeState, setResizeState] = useState<{
-    isActive: boolean;
-    blockId: string;
-    edge: 'start' | 'end';
-    originalStart: number;
-    originalEnd: number;
-  } | null>(null);
+  // 셀 클릭/드래그로 페인팅
+  const handleCellInteraction = (hour: number) => {
+    if (mode !== 'edit' || !onChange) return;
 
-  const timelineRef = useRef<HTMLDivElement>(null);
+    const newSchedule = [...hourlySchedule];
 
-  // 드래그로 블록 생성
+    // 같은 타입이면 지우기 (토글)
+    if (newSchedule[hour] === selectedType) {
+      newSchedule[hour] = null;
+    } else {
+      newSchedule[hour] = selectedType;
+    }
+
+    onChange(newSchedule);
+  };
+
+  // 마우스 다운 (페인팅 시작)
   const handleMouseDown = (hour: number) => {
     if (mode !== 'edit') return;
-    setDragState({ isActive: true, startHour: hour, endHour: hour });
+    setIsPainting(true);
+    handleCellInteraction(hour);
   };
 
-  const handleMouseMove = (hour: number) => {
-    if (dragState.isActive) {
-      setDragState((prev) => ({ ...prev, endHour: hour }));
+  // 마우스 엔터 (드래그 중)
+  const handleMouseEnter = (hour: number) => {
+    if (isPainting && mode === 'edit') {
+      handleCellInteraction(hour);
     }
   };
 
+  // 마우스 업 (페인팅 종료)
   const handleMouseUp = () => {
-    if (!dragState.isActive) return;
+    setIsPainting(false);
+  };
 
-    const { startHour, endHour } = dragState;
-    const [start, end] =
-      startHour <= endHour ? [startHour, endHour + 1] : [endHour, startHour + 1];
+  // 타입별 스타일
+  const getCellStyle = (type: TimeBlockType | null) => {
+    if (!type) return 'bg-white hover:bg-neutral-100';
 
-    const startTime = hourToMinutes(start);
-    const endTime = hourToMinutes(end);
-
-    if (onBlockAdd && startTime < endTime) {
-      onBlockAdd(startTime, endTime);
+    switch (type) {
+      case 'QUIET':
+        return 'bg-neutral-800 text-white';
+      case 'BUSY':
+        return 'bg-accent text-white';
+      case 'TASK':
+        return 'bg-primary text-white';
+      default:
+        return 'bg-neutral-200';
     }
-
-    setDragState({ isActive: false, startHour: 0, endHour: 0 });
   };
 
-  // 리사이즈 시작
-  const handleResizeStart = (blockId: string, edge: 'start' | 'end') => {
-    const block = blocks.find((b) => b.id === blockId);
-    if (!block) return;
-
-    setResizeState({
-      isActive: true,
-      blockId,
-      edge,
-      originalStart: block.startTime,
-      originalEnd: block.endTime,
-    });
+  // 타입별 라벨
+  const getTypeLabel = (type: TimeBlockType | null) => {
+    if (!type) return '';
+    switch (type) {
+      case 'QUIET':
+        return '조용';
+      case 'BUSY':
+        return '외출';
+      case 'TASK':
+        return '업무';
+      default:
+        return '';
+    }
   };
-
-  // 전역 마우스 이벤트로 리사이즈 처리
-  useEffect(() => {
-    if (!resizeState?.isActive) return;
-
-    const handleGlobalMouseMove = (e: MouseEvent) => {
-      if (!timelineRef.current) return;
-
-      const rect = timelineRef.current.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      const hour = Math.floor((x / rect.width) * 24);
-      const clampedHour = Math.max(0, Math.min(23, hour));
-
-      const newTime = hourToMinutes(clampedHour);
-
-      if (resizeState.edge === 'start') {
-        const newStart = Math.min(newTime, resizeState.originalEnd - 60);
-        if (onBlockUpdate) {
-          onBlockUpdate(resizeState.blockId, { startTime: newStart });
-        }
-      } else {
-        const newEnd = Math.max(newTime + 60, resizeState.originalStart + 60);
-        if (onBlockUpdate) {
-          onBlockUpdate(resizeState.blockId, { endTime: newEnd });
-        }
-      }
-    };
-
-    const handleGlobalMouseUp = () => {
-      setResizeState(null);
-    };
-
-    document.addEventListener('mousemove', handleGlobalMouseMove);
-    document.addEventListener('mouseup', handleGlobalMouseUp);
-
-    return () => {
-      document.removeEventListener('mousemove', handleGlobalMouseMove);
-      document.removeEventListener('mouseup', handleGlobalMouseUp);
-    };
-  }, [resizeState, onBlockUpdate]);
-
-  // 드래그 미리보기 영역 계산
-  const getPreviewArea = () => {
-    if (!dragState.isActive) return null;
-
-    const { startHour, endHour } = dragState;
-    const [start, end] = startHour <= endHour ? [startHour, endHour] : [endHour, startHour];
-
-    return {
-      startCol: start + 1,
-      endCol: end + 2,
-    };
-  };
-
-  const previewArea = getPreviewArea();
 
   return (
-    <div className="flex flex-col gap-1">
+    <div className="flex flex-col gap-1" onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp}>
       {/* 요일 라벨 */}
       <div className="flex items-center gap-2">
-        <span className={cn(
-          'text-sm font-medium text-neutral-700 w-8',
-          compact && 'text-xs'
-        )}>
+        <span
+          className={cn(
+            'text-sm font-medium text-neutral-700 w-8 text-center',
+            compact && 'text-xs'
+          )}
+        >
           {dayOfWeekToKorean(day)}
         </span>
 
         {/* 시간 라벨 */}
         {showHourLabels && (
-          <div className="grid grid-cols-24 gap-0 flex-1 text-xs text-neutral-500">
+          <div className="grid grid-cols-24 gap-0 flex-1">
             {Array.from({ length: 24 }, (_, i) => (
-              <div key={i} className="text-center">
+              <div key={i} className="text-center text-xs text-neutral-500">
                 {i}
               </div>
             ))}
@@ -171,58 +121,33 @@ export default function DayTimeline({
         )}
       </div>
 
-      {/* 타임라인 그리드 */}
+      {/* 타임라인 셀 그리드 */}
       <div className="flex items-center gap-2">
         <div className="w-8" /> {/* 요일 라벨 공간 */}
 
         <div
-          ref={timelineRef}
           className={cn(
-            'relative grid grid-cols-24 gap-0 flex-1 bg-neutral-100 rounded-lg overflow-hidden border border-neutral-300',
+            'grid grid-cols-24 gap-0.5 flex-1',
             compact ? 'h-8' : 'h-12'
           )}
-          onMouseUp={handleMouseUp}
-          onMouseLeave={handleMouseUp}
         >
-          {/* 시간 칸 (드래그 영역) */}
-          {Array.from({ length: 24 }, (_, hour) => (
+          {hourlySchedule.map((type, hour) => (
             <div
               key={hour}
               className={cn(
-                'border-r border-neutral-200 last:border-r-0',
-                mode === 'edit' && 'cursor-crosshair hover:bg-neutral-200'
+                'rounded-sm border border-neutral-300 flex items-center justify-center text-xs font-medium transition-all select-none',
+                getCellStyle(type),
+                mode === 'edit' && 'cursor-pointer hover:opacity-80'
               )}
               onMouseDown={() => handleMouseDown(hour)}
-              onMouseMove={() => handleMouseMove(hour)}
-            />
+              onMouseEnter={() => handleMouseEnter(hour)}
+              title={`${hour}:00 - ${hour + 1}:00`}
+            >
+              {!compact && type && (
+                <span className="text-[10px]">{getTypeLabel(type)}</span>
+              )}
+            </div>
           ))}
-
-          {/* 블록 레이어 */}
-          <div className="absolute inset-0 grid grid-cols-24 gap-0 pointer-events-none">
-            {blocks.map((block) => (
-              <div key={block.id} className="pointer-events-auto">
-                <TimeBlock
-                  type={block.type}
-                  startTime={block.startTime}
-                  endTime={block.endTime}
-                  isEditing={mode === 'edit'}
-                  isResizing={resizeState?.blockId === block.id}
-                  onDelete={() => onBlockDelete?.(block.id!)}
-                  onResizeStart={(edge) => handleResizeStart(block.id!, edge)}
-                />
-              </div>
-            ))}
-          </div>
-
-          {/* 드래그 미리보기 */}
-          {previewArea && (
-            <div
-              className="absolute top-0 bottom-0 bg-primary/30 border-2 border-primary border-dashed pointer-events-none"
-              style={{
-                gridColumn: `${previewArea.startCol} / ${previewArea.endCol}`,
-              }}
-            />
-          )}
         </div>
       </div>
     </div>

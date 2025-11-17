@@ -1,84 +1,57 @@
 'use client';
 
-import { useState } from 'react';
-import type { ScheduleBlock, DayOfWeek, TimeBlockType } from '@/types';
+import { useState, useEffect } from 'react';
+import type { DayOfWeek, TimeBlockType } from '@/types';
 import { DAYS_OF_WEEK } from '@/types';
-import {
-  getBlocksByDay,
-  hasOverlap,
-  fillGapsWithTask,
-  applyToWeekdays,
-  applyToWeekend,
-  copyDayToAnother,
-} from '@/lib/timetable-utils';
 import DayTimeline from './DayTimeline';
 import { Button } from './ui/button';
 import { cn } from '@/lib/utils';
 
 // ========================================
-// TimetableGrid Component
+// TimetableGrid Component (시간별 상태 관리)
 // ========================================
 
+export type WeeklyHourlySchedule = Record<DayOfWeek, (TimeBlockType | null)[]>;
+
 interface TimetableGridProps {
-  schedules: ScheduleBlock[];
-  onScheduleChange: (schedules: ScheduleBlock[]) => void;
+  initialSchedule?: WeeklyHourlySchedule;
+  onScheduleChange: (schedule: WeeklyHourlySchedule) => void;
   mode?: 'edit' | 'view';
   showQuickActions?: boolean;
 }
 
+// 빈 스케줄 생성
+const createEmptySchedule = (): WeeklyHourlySchedule => {
+  const schedule = {} as WeeklyHourlySchedule;
+  DAYS_OF_WEEK.forEach((day) => {
+    schedule[day] = Array(24).fill(null);
+  });
+  return schedule;
+};
+
 export default function TimetableGrid({
-  schedules,
+  initialSchedule,
   onScheduleChange,
   mode = 'edit',
   showQuickActions = true,
 }: TimetableGridProps) {
+  const [schedule, setSchedule] = useState<WeeklyHourlySchedule>(
+    initialSchedule || createEmptySchedule()
+  );
   const [selectedType, setSelectedType] = useState<TimeBlockType>('QUIET');
   const [selectedDay, setSelectedDay] = useState<DayOfWeek | null>(null);
 
-  // 블록 추가
-  const handleBlockAdd = (day: DayOfWeek, startTime: number, endTime: number) => {
-    const newBlock: ScheduleBlock = {
-      id: crypto.randomUUID(),
-      dayOfWeek: day,
-      type: selectedType,
-      startTime,
-      endTime,
-    };
+  // 부모에게 변경 알림
+  useEffect(() => {
+    onScheduleChange(schedule);
+  }, [schedule, onScheduleChange]);
 
-    // 겹침 확인
-    if (hasOverlap(schedules, newBlock)) {
-      alert('시간이 겹칩니다!');
-      return;
-    }
-
-    onScheduleChange([...schedules, newBlock]);
-  };
-
-  // 블록 업데이트
-  const handleBlockUpdate = (
-    blockId: string,
-    updates: Partial<ScheduleBlock>
-  ) => {
-    const updatedSchedules = schedules.map((block) =>
-      block.id === blockId ? { ...block, ...updates } : block
-    );
-
-    // 겹침 확인 (자기 자신 제외)
-    const updatedBlock = updatedSchedules.find((b) => b.id === blockId);
-    if (
-      updatedBlock &&
-      hasOverlap(schedules, updatedBlock, blockId)
-    ) {
-      alert('시간이 겹칩니다!');
-      return;
-    }
-
-    onScheduleChange(updatedSchedules);
-  };
-
-  // 블록 삭제
-  const handleBlockDelete = (blockId: string) => {
-    onScheduleChange(schedules.filter((block) => block.id !== blockId));
+  // 요일 스케줄 변경
+  const handleDayScheduleChange = (day: DayOfWeek, hourlySchedule: (TimeBlockType | null)[]) => {
+    setSchedule((prev) => ({
+      ...prev,
+      [day]: hourlySchedule,
+    }));
   };
 
   // 빠른 액션: 평일 적용
@@ -87,8 +60,18 @@ export default function TimetableGrid({
       alert('먼저 복사할 요일을 선택하세요');
       return;
     }
-    const updated = applyToWeekdays(selectedDay, schedules);
-    onScheduleChange(updated);
+
+    const template = schedule[selectedDay];
+    const weekdays: DayOfWeek[] = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY'];
+
+    setSchedule((prev) => {
+      const updated = { ...prev };
+      weekdays.forEach((day) => {
+        updated[day] = [...template];
+      });
+      return updated;
+    });
+
     alert('평일에 적용되었습니다');
   };
 
@@ -98,25 +81,39 @@ export default function TimetableGrid({
       alert('먼저 복사할 요일을 선택하세요');
       return;
     }
-    const updated = applyToWeekend(selectedDay, schedules);
-    onScheduleChange(updated);
+
+    const template = schedule[selectedDay];
+    const weekend: DayOfWeek[] = ['SATURDAY', 'SUNDAY'];
+
+    setSchedule((prev) => {
+      const updated = { ...prev };
+      weekend.forEach((day) => {
+        updated[day] = [...template];
+      });
+      return updated;
+    });
+
     alert('주말에 적용되었습니다');
+  };
+
+  // 빠른 액션: 빈 시간 TASK로 채우기
+  const handleFillGaps = () => {
+    setSchedule((prev) => {
+      const updated = { ...prev };
+      DAYS_OF_WEEK.forEach((day) => {
+        updated[day] = updated[day].map((type) => type || 'TASK');
+      });
+      return updated;
+    });
+
+    alert('빈 시간을 업무 시간으로 채웠습니다');
   };
 
   // 빠른 액션: 전체 초기화
   const handleReset = () => {
     if (confirm('모든 블록을 삭제하시겠습니까?')) {
-      onScheduleChange([]);
+      setSchedule(createEmptySchedule());
     }
-  };
-
-  // 빠른 액션: TASK로 빈 시간 채우기
-  const handleFillGaps = () => {
-    let updated = schedules;
-    DAYS_OF_WEEK.forEach((day) => {
-      updated = fillGapsWithTask(updated, day);
-    });
-    onScheduleChange(updated);
   };
 
   return (
@@ -150,7 +147,7 @@ export default function TimetableGrid({
             </Button>
           </div>
           <span className="text-xs text-neutral-500 ml-auto">
-            타입을 선택한 후 드래그하여 블록을 생성하세요
+            타입을 선택한 후 클릭/드래그하여 시간을 설정하세요
           </span>
         </div>
       )}
@@ -169,13 +166,11 @@ export default function TimetableGrid({
           >
             <DayTimeline
               day={day}
-              blocks={getBlocksByDay(schedules, day)}
+              hourlySchedule={schedule[day]}
               selectedType={selectedType}
               mode={mode}
               showHourLabels={index === 0} // 첫 줄만 시간 라벨 표시
-              onBlockAdd={(start, end) => handleBlockAdd(day, start, end)}
-              onBlockUpdate={handleBlockUpdate}
-              onBlockDelete={handleBlockDelete}
+              onChange={(hourlySchedule) => handleDayScheduleChange(day, hourlySchedule)}
             />
           </div>
         ))}
