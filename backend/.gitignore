@@ -1,0 +1,13 @@
+# 의존성 패키지
+/node_modules
+
+# 환경 변수 파일
+.env
+
+# 로그 파일
+npm-debug.log
+*.log
+
+# 운영체제 생성 파일
+.DS_Store
+Thumbs.db

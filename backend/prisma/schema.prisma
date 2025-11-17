@@ -1,0 +1,166 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// User Model
+model User {
+  id           String    @id @default(cuid()) // 사용자 난수 생성 id
+  googleId     String    @unique // 구글 고유 id
+  email        String    @unique // 구글 메일
+  name         String? // 구글 이름->프로필 설정 시 수정 
+  createdAt    DateTime  @default(now()) 
+  updatedAt    DateTime  @updatedAt
+
+  // 1인 1방
+  roomId       String? // 외래 키
+  // Room에서 Room.id 참조하여 roomId에 작성 관계이름은 RoomParticipants 삭제 시 Null로 변경
+  room         Room?     @relation(fields: [roomId], references: [id], name: "RoomParticipants", onDelete: SetNull) 
+  
+  // 방장 역할을 할 경우 가상 관계 필드 Room.ownerId를 User.id에 연결
+  ownedRoom    Room?     @relation("RoomOwner")
+
+  // 주간 스케줄 타임 테이블 목록
+  scheduleBlocks ScheduleBlock[]
+
+  // 지난 주 업무 강도(기본 세팅 = 0)
+  workLoad  Int @default(0)
+
+  // 1, 2지망 업무 목록
+  taskPreferences TaskPreference[]
+
+  // 그리디 알고리즘으로 할당받은 업무 목록
+  assignedTasks AssignedTask[]
+}
+
+// Room Model
+model Room {
+  id           String   @id @default(cuid()) // 방 고유 난수 생성 id
+  name         String // 방 이름
+  inviteCode   String   @unique // nanoid로 초대용 난수 코드 생성
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // 방장은 한 명, 1인 1방 원칙
+  ownerId      String   @unique // 외래 키
+  owner        User     @relation(fields: [ownerId], references: [id], name: "RoomOwner", onDelete: Cascade)
+
+  // 참여자 목록
+  participants User[]   @relation("RoomParticipants") 
+
+  // 배정 가능 업무 목록
+  RoomTasks RoomTask[]
+
+  //배정된 업무 목록
+  assignedTasks AssignedTask[]
+}
+
+// ScheduleBlock Model 주간 스케줄
+model ScheduleBlock {
+  id            String        @id @default(cuid()) // 업무에 대한 고유 코드 생성
+  dayOfWeek     DayOfWeek // 요일
+  type          TimeBlockType // 조용, 수면, 바쁜, 업무 시간 종류
+  startTime     Int // 시작 시간 (시간 * 60) + 분 으로 저장
+  endTime   Int // 종료 시간 (시간 * 60) + 분 으로 저장
+  
+  // 외래 키
+  userId        String
+  // User에서 User.id 참조하여 userId에 작성 관계가 명확하므로 관계명 설정 x 유저 탈퇴 시 업무 삭제
+  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+enum TimeBlockType {
+  QUIET // 조용시간
+  BUSY // 바쁜시간
+  TASK // 업무시간  
+}
+
+// 요일 종류
+enum DayOfWeek { 
+  MONDAY
+  TUESDAY 
+  WEDNESDAY 
+  THURSDAY 
+  FRIDAY 
+  SATURDAY 
+  SUNDAY 
+}
+
+// RoomTaskTemplate Modle 방이 생성될 때마다 템플릿에서 업무를 복사
+model RoomTaskTemplate {
+  id              String @id @default(cuid())
+  title           String
+
+  // knapsack 가치
+  difficulty      Int
+  // knapsack 용량
+  estimatedTime   Int
+}
+
+// RoomTask Modle 템플릿에서 업무를 복사하고 방 id를 추가하여 연결
+model RoomTask {
+  id              String @id @default(cuid())
+  title           String
+
+  // knapsack 가치
+  difficulty      Int
+  // knapsack 용량
+  estimatedTime   Int
+
+  // 어떤 방인지
+  roomId          String
+  room            Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+
+  // 업무 신청자
+  preferences TaskPreference[]
+
+  // 업무 배정 결과
+  assignedTask AssignedTask?
+}
+
+// TaskPreference Model 선호 업무 목록
+model TaskPreference {
+  id       String @id @default(cuid())
+  
+  // 우선순위
+  priority Int
+
+  // user 연결
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // 방 업무 연결
+  taskId String
+  task   RoomTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  // 업무 겹치게 신청할 수 없음
+  @@unique([userId, taskId])
+}
+
+// AssignedTask Model 그리디 알고리즘으로 배정된 업무 목록
+model AssignedTask {
+  id            String   @id @default(cuid())
+  
+  // 업무 종류
+  RoomTaskId String        @unique
+  RoomTask   RoomTask @relation(fields: [RoomTaskId], references: [id])
+
+  // 배정자
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // 업무 난이도
+  difficulty      Int
+  
+  // 방 연결
+  roomId String
+  room   Room   @relation(fields: [roomId], references: [id], onDelete: Cascade)
+
+  // 업무 시간 시간대는 task 타임테이블에서, 날짜는 스케줄러를 통해 날짜 데이터 받아옴
+  startDateTime DateTime 
+  endDateTime   DateTime
+}
