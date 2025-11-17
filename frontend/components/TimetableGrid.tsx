@@ -8,7 +8,7 @@ import { Button } from './ui/button';
 import { cn } from '@/lib/utils';
 
 // ========================================
-// TimetableGrid Component (시간별 상태 관리)
+// TimetableGrid Component
 // ========================================
 
 export type WeeklyHourlySchedule = Record<DayOfWeek, (TimeBlockType | null)[]>;
@@ -72,7 +72,7 @@ export default function TimetableGrid({
       return updated;
     });
 
-    alert('평일에 적용되었습니다');
+    setSelectedDay(null);
   };
 
   // 빠른 액션: 주말 적용
@@ -93,74 +93,74 @@ export default function TimetableGrid({
       return updated;
     });
 
-    alert('주말에 적용되었습니다');
-  };
-
-  // 빠른 액션: 빈 시간 TASK로 채우기
-  const handleFillGaps = () => {
-    setSchedule((prev) => {
-      const updated = { ...prev };
-      DAYS_OF_WEEK.forEach((day) => {
-        updated[day] = updated[day].map((type) => type || 'TASK');
-      });
-      return updated;
-    });
-
-    alert('빈 시간을 업무 시간으로 채웠습니다');
+    setSelectedDay(null);
   };
 
   // 빠른 액션: 전체 초기화
   const handleReset = () => {
-    if (confirm('모든 블록을 삭제하시겠습니까?')) {
+    if (confirm('모든 설정을 초기화하시겠습니까?')) {
       setSchedule(createEmptySchedule());
+      setSelectedDay(null);
     }
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       {/* 타입 선택 툴바 */}
       {mode === 'edit' && (
-        <div className="flex items-center gap-3 p-4 bg-card rounded-lg border border-neutral-200">
-          <span className="text-sm font-medium text-neutral-700">
-            선택 타입:
-          </span>
-          <div className="flex gap-2">
-            <Button
-              variant={selectedType === 'QUIET' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setSelectedType('QUIET')}
-              className={cn(
-                selectedType === 'QUIET' && 'bg-neutral-800 hover:bg-neutral-700'
-              )}
-            >
-              🌙 조용시간
-            </Button>
-            <Button
-              variant={selectedType === 'BUSY' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setSelectedType('BUSY')}
-              className={cn(
-                selectedType === 'BUSY' && 'bg-accent hover:bg-accent/80'
-              )}
-            >
-              🚶 외출
-            </Button>
+        <div className="bg-gradient-to-r from-neutral-50 to-neutral-100 rounded-xl p-6 border border-neutral-200 shadow-sm">
+          <div className="flex items-center justify-between flex-wrap gap-4">
+            <div className="flex items-center gap-3">
+              <span className="text-sm font-semibold text-neutral-700">
+                시간 타입:
+              </span>
+              <div className="flex gap-2">
+                <Button
+                  variant={selectedType === 'QUIET' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setSelectedType('QUIET')}
+                  className={cn(
+                    'px-4 py-2 font-medium transition-all',
+                    selectedType === 'QUIET'
+                      ? 'bg-neutral-800 hover:bg-neutral-700 text-white shadow-md'
+                      : 'hover:bg-neutral-100'
+                  )}
+                >
+                  🌙 조용시간
+                </Button>
+                <Button
+                  variant={selectedType === 'BUSY' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setSelectedType('BUSY')}
+                  className={cn(
+                    'px-4 py-2 font-medium transition-all',
+                    selectedType === 'BUSY'
+                      ? 'bg-accent hover:bg-accent/90 text-white shadow-md'
+                      : 'hover:bg-accent/10'
+                  )}
+                >
+                  🚶 외출
+                </Button>
+              </div>
+            </div>
+            <span className="text-xs text-neutral-500">
+              💡 선택한 타입을 클릭하거나 드래그하여 시간을 설정하세요
+            </span>
           </div>
-          <span className="text-xs text-neutral-500 ml-auto">
-            타입을 선택한 후 클릭/드래그하여 시간을 설정하세요
-          </span>
         </div>
       )}
 
       {/* 7일 타임라인 그리드 */}
-      <div className="space-y-3">
+      <div className="space-y-4">
         {DAYS_OF_WEEK.map((day, index) => (
           <div
             key={day}
             className={cn(
-              'p-3 rounded-lg transition-colors',
-              selectedDay === day && 'bg-primary/5 border border-primary',
-              mode === 'edit' && 'cursor-pointer hover:bg-neutral-50'
+              'rounded-xl p-4 transition-all duration-200',
+              selectedDay === day
+                ? 'bg-primary/10 border-2 border-primary shadow-lg'
+                : 'bg-white border-2 border-transparent hover:border-neutral-200',
+              mode === 'edit' && 'cursor-pointer'
             )}
             onClick={() => mode === 'edit' && setSelectedDay(day)}
           >
@@ -169,7 +169,7 @@ export default function TimetableGrid({
               hourlySchedule={schedule[day]}
               selectedType={selectedType}
               mode={mode}
-              showHourLabels={index === 0} // 첫 줄만 시간 라벨 표시
+              showHourLabels={index === 0}
               onChange={(hourlySchedule) => handleDayScheduleChange(day, hourlySchedule)}
             />
           </div>
@@ -178,50 +178,46 @@ export default function TimetableGrid({
 
       {/* 빠른 액션 */}
       {mode === 'edit' && showQuickActions && (
-        <div className="flex flex-wrap gap-2 p-4 bg-neutral-50 rounded-lg border border-neutral-200">
-          <span className="text-sm font-medium text-neutral-700 w-full mb-2">
-            빠른 설정:
-          </span>
+        <div className="bg-white rounded-xl p-6 border-2 border-neutral-200 shadow-sm">
+          <h3 className="text-sm font-semibold text-neutral-800 mb-4">
+            ⚡ 빠른 설정
+          </h3>
 
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleApplyToWeekdays}
-            disabled={!selectedDay}
-          >
-            선택한 요일을 평일에 적용
-          </Button>
+          <div className="flex flex-wrap gap-3">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleApplyToWeekdays}
+              disabled={!selectedDay}
+              className="border-primary text-primary hover:bg-primary hover:text-white disabled:opacity-50"
+            >
+              📅 선택한 요일을 평일에 적용
+            </Button>
 
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleApplyToWeekend}
-            disabled={!selectedDay}
-          >
-            선택한 요일을 주말에 적용
-          </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleApplyToWeekend}
+              disabled={!selectedDay}
+              className="border-accent text-accent hover:bg-accent hover:text-white disabled:opacity-50"
+            >
+              🌴 선택한 요일을 주말에 적용
+            </Button>
 
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleFillGaps}
-          >
-            빈 시간을 업무 시간으로 채우기
-          </Button>
-
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleReset}
-            className="ml-auto text-destructive hover:bg-destructive/10"
-          >
-            전체 초기화
-          </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleReset}
+              className="ml-auto border-destructive text-destructive hover:bg-destructive hover:text-white"
+            >
+              🗑️ 전체 초기화
+            </Button>
+          </div>
 
           {selectedDay && (
-            <span className="text-xs text-neutral-500 w-full mt-2">
-              현재 선택된 요일: <strong>{selectedDay}</strong>
-            </span>
+            <p className="text-xs text-neutral-600 mt-4 bg-primary/5 p-3 rounded-lg border border-primary/20">
+              ✅ 현재 선택: <strong>{selectedDay}</strong> (위 버튼을 눌러 다른 요일에 적용)
+            </p>
           )}
         </div>
       )}
